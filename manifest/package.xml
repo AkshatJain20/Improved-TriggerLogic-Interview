@@ -12,5 +12,9 @@
         <members>ContactTrigger</members>
         <name>ApexTrigger</name>
     </types>
+    <types>
+        <members>Opportunity_Contact_Role_Label</members>
+        <name>CustomLabel</name>
+    </types>
     <version>66.0</version>
 </Package>

@@ -58,7 +58,7 @@ public class ContactTriggerHandler {
         
         // Prepare OCR records for insertion
         List<OpportunityContactRole> listToInsert = new List<OpportunityContactRole>();
-        
+        String ocrRole = System.label.Opportunity_Contact_Role_Label != null ? System.label.Opportunity_Contact_Role_Label : 'Family Member';
         for(Contact con : contacts) {
             List<Opportunity> oppList = accIdVsOpps.get(con.AccountId);
             if(oppList == null) {
@@ -77,7 +77,7 @@ public class ContactTriggerHandler {
                 OpportunityContactRole ocr = new OpportunityContactRole();
                 ocr.OpportunityId = opp.Id;
                 ocr.ContactId = con.Id;
-                ocr.Role = 'Family Member';
+                ocr.Role = ocrRole;
                 // Make primary only if Opportunity has no primary OCR
                 if(opportunityPrimaryContactRoleExists.add(opp.Id)) {
                     ocr.IsPrimary = true;

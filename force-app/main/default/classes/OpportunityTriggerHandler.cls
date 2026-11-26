@@ -47,6 +47,7 @@ public static void createContactRoles(List<opportunity> opportunities, Map<Id, O
 		existingOpportunityContactRoles.get(ocr.OpportunityId).add(ocr.ContactId);
 	}
 	List<OpportunityContactRole> listToInsert = new List<OpportunityContactRole>();
+    String ocrRole = System.label.Opportunity_Contact_Role_Label != null ? System.label.Opportunity_Contact_Role_Label : 'Family Member';
 	for(Opportunity opp:opportunities){
 		List<Contact> conList = accIdVsContacts.get(opp.AccountId);
 		if (conList == null) {
@@ -70,7 +71,7 @@ public static void createContactRoles(List<opportunity> opportunities, Map<Id, O
 			ocr.OpportunityId = opp.Id;
 			ocr.ContactId = con.Id;
 			ocr.IsPrimary = !isPrimaryExists;
-			ocr.Role = 'Family Member';
+			ocr.Role = ocrRole;
 			if(!isPrimaryExists){
 				isPrimaryExists = true;
 			}
