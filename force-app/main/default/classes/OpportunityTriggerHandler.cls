@@ -70,6 +70,7 @@ public static void createContactRoles(List<opportunity> opportunities, Map<Id, O
 			ocr.OpportunityId = opp.Id;
 			ocr.ContactId = con.Id;
 			ocr.IsPrimary = !isPrimaryExists;
+			ocr.Role = 'Family Member';
 			if(!isPrimaryExists){
 				isPrimaryExists = true;
 			}
