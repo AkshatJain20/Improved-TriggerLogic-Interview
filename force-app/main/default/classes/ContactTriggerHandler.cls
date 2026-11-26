@@ -1,5 +1,22 @@
 public class ContactTriggerHandler {
     
+    public static void handleAfterInsertUpdate(List<Contact> contacts, Map<Id, Contact> oldMap, Boolean isInsert){
+        if(isInsert){
+            createOpportunityContactRoles(contacts, null);
+        }else{
+            List<Contact> changedContacts = new List<Contact>();
+            for(Contact con : contacts) {
+                Contact oldCon = oldMap.get(con.Id);
+                if(con.AccountId != oldCon.AccountId) {
+                    changedContacts.add(con);
+                }
+            }
+            if(!changedContacts.isEmpty()) {
+                createOpportunityContactRoles(changedContacts, oldMap);
+            }
+        }
+    }
+    
     public static void createOpportunityContactRoles(List<Contact> contacts, Map<Id, Contact> oldMap) {
         
         Set<Id> accountIds = new Set<Id>();
