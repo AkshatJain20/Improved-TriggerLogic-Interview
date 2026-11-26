@@ -10,7 +10,6 @@ private class OpportunityTriggerHandlerTest {
             new Account(Name = 'Old Account'),
             new Account(Name = 'New Account')
         };
-
         insert accounts;
 
         List<Contact> contacts = new List<Contact>();
