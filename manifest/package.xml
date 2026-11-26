@@ -3,10 +3,13 @@
     <types>
         <members>OpportunityTriggerHandler</members>
         <members>OpportunityTriggerHandlerTest</members>
+        <members>ContactTriggerHandler</members>
+        <members>ContactTriggerHandlerTest</members>
         <name>ApexClass</name>
     </types>
     <types>
         <members>OpportunityTrigger</members>
+        <members>ContactTrigger</members>
         <name>ApexTrigger</name>
     </types>
     <version>66.0</version>
