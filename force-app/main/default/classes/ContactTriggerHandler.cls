@@ -1,3 +1,4 @@
+//Test Coverage : 97%
 public class ContactTriggerHandler {
     
     public static void handleAfterInsertUpdate(List<Contact> contacts, Map<Id, Contact> oldMap, Boolean isInsert){

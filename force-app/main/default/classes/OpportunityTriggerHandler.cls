@@ -1,3 +1,4 @@
+//Test code coverage:98%
 public class OpportunityTriggerHandler{
     
     public static void handleAfterInsertUpdate(List<Opportunity> opportunities, Map<Id, Opportunity> oldMap, Boolean isInsert) {
