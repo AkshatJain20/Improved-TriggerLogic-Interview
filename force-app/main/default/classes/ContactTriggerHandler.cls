@@ -48,7 +48,7 @@ public class ContactTriggerHandler {
         // Get Opportunities related to current Accounts
         Map<Id, List<Opportunity>> accIdVsOpps = new Map<Id, List<Opportunity>>();
         Set<Id> opportunityIds = new Set<Id>();
-        for(Opportunity opp : [SELECT Id, AccountId FROM Opportunity WHERE AccountId IN :accountIds]) {
+        for(Opportunity opp : [SELECT Id, AccountId FROM Opportunity WHERE AccountId IN :accountIds AND StageName = 'Closed Won']) {
             if(!accIdVsOpps.containsKey(opp.AccountId)) {
                 accIdVsOpps.put(opp.AccountId, new List<Opportunity>());
             }

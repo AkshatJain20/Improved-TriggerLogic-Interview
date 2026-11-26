@@ -16,19 +16,19 @@ public class ContactTriggerHandlerTest {
             new Opportunity(
                 Name = 'Opportunity A1',
                 AccountId = accounts[0].Id,
-                StageName = 'Prospecting',
+                StageName = 'Closed Won',
                 CloseDate = Date.today().addDays(30)
             ),
             new Opportunity(
                 Name = 'Opportunity A2',
                 AccountId = accounts[0].Id,
-                StageName = 'Prospecting',
+                StageName = 'Closed Won',
                 CloseDate = Date.today().addDays(30)
             ),
             new Opportunity(
                 Name = 'Opportunity B1',
                 AccountId = accounts[1].Id,
-                StageName = 'Prospecting',
+                StageName = 'Closed Won',
                 CloseDate = Date.today().addDays(30)
             )
         };
@@ -77,6 +77,50 @@ public class ContactTriggerHandlerTest {
 
         System.assertEquals(2, primaryCount, 'Each Opportunity should have exactly one primary OCR.');
     }
+    
+    @isTest
+    static void testCheckPrimary() {
+
+        Account acc = [
+            SELECT Id
+            FROM Account
+            WHERE Name = 'Account A'
+            LIMIT 1
+        ];
+
+        Test.startTest();
+
+        Contact con = new Contact(
+            LastName = 'Test Contact',
+            AccountId = acc.Id
+        );
+        insert con;
+
+        Test.stopTest();
+		Contact con2 = new Contact(
+            LastName = 'Test Contact',
+            AccountId = acc.Id
+        );
+        insert con2;
+        List<OpportunityContactRole> roles = [
+            SELECT Id, OpportunityId, ContactId, IsPrimary, Role
+            FROM OpportunityContactRole
+            WHERE ContactId = :con.Id
+        ];
+
+        Integer primaryCount = 0;
+
+        for(OpportunityContactRole ocr : roles) {
+            if(ocr.IsPrimary) {
+                primaryCount++;
+            }
+
+            System.assertEquals('Family Member', ocr.Role);
+        }
+
+        System.assertEquals(2, primaryCount, 'Each Opportunity should have exactly one primary OCR.');
+    }
+
 
     // Test Contact Account change
     @isTest

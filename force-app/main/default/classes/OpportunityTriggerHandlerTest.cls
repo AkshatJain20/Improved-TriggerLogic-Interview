@@ -1,76 +1,81 @@
 @isTest
-private class OpportunityTriggerHandlerTest {
+public class OpportunityTriggerHandlerTest {
 
-    // Create reusable test data
     @testSetup
     static void setupData() {
 
+        // Create Accounts
         List<Account> accounts = new List<Account>{
-            new Account(Name = 'Old Account'),
-            new Account(Name = 'New Account')
+            new Account(Name = 'Account A'),
+            new Account(Name = 'Account B'),
+            new Account(Name = 'Account C')
         };
-
         insert accounts;
 
+        // Create Contacts before Opportunities
+        // This ensures Contact Trigger does not create OCRs yet
         List<Contact> contacts = new List<Contact>();
 
-        // Two Contacts for Old Account
-        contacts.add(new Contact(
-            LastName = 'Old Contact 1',
-            AccountId = accounts[0].Id
-        ));
+        for(Integer i = 1; i <= 2; i++) {
+            contacts.add(new Contact(
+                LastName = 'AccountA Contact ' + i,
+                AccountId = accounts[0].Id
+            ));
 
-        contacts.add(new Contact(
-            LastName = 'Old Contact 2',
-            AccountId = accounts[0].Id
-        ));
+            contacts.add(new Contact(
+                LastName = 'AccountB Contact ' + i,
+                AccountId = accounts[1].Id
+            ));
 
-        // Two Contacts for New Account
-        contacts.add(new Contact(
-            LastName = 'New Contact 1',
-            AccountId = accounts[1].Id
-        ));
-
-        contacts.add(new Contact(
-            LastName = 'New Contact 2',
-            AccountId = accounts[1].Id
-        ));
+            contacts.add(new Contact(
+                LastName = 'AccountC Contact ' + i,
+                AccountId = accounts[2].Id
+            ));
+        }
 
         insert contacts;
     }
 
-    // Helper method to create Opportunities
-    private static Opportunity createOpportunity(Id accountId) {
+    // Helper method to create Opportunity
+    private static Opportunity createOpportunity(
+        Id accountId,
+        String stageName
+    ) {
 
         Opportunity opp = new Opportunity(
             Name = 'Test Opportunity',
             AccountId = accountId,
-            StageName = 'Prospecting',
+            StageName = stageName,
             CloseDate = Date.today().addDays(30)
         );
+
+        insert opp;
 
         return opp;
     }
 
-    // Test 1: Create Contact Roles when Opportunity is inserted
+    // Test 1: Create Opportunity directly as Closed Won
     @isTest
-    static void testContactRoleCreation() {
+    static void testClosedWonOpportunityInsert() {
 
         Account acc = [
-            SELECT Id FROM Account
-            WHERE Name = 'Old Account'
+            SELECT Id
+            FROM Account
+            WHERE Name = 'Account A'
             LIMIT 1
         ];
 
         Test.startTest();
 
-        Opportunity opp = createOpportunity(acc.Id);
-        insert opp;
+        Opportunity opp = createOpportunity(
+            acc.Id,
+            'Closed Won'
+        );
 
         Test.stopTest();
 
         List<OpportunityContactRole> roles = [
-            SELECT Id, ContactId, IsPrimary
+            SELECT Id, OpportunityId, ContactId, IsPrimary, Role
             FROM OpportunityContactRole
             WHERE OpportunityId = :opp.Id
         ];
@@ -78,13 +83,13 @@ private class OpportunityTriggerHandlerTest {
         System.assertEquals(
             2,
             roles.size(),
-            'Two Contact Roles should be created.'
+            'OCRs should be created for all Account Contacts.'
         );
 
         Integer primaryCount = 0;
 
-        for (OpportunityContactRole ocr : roles) {
-            if (ocr.IsPrimary) {
+        for(OpportunityContactRole ocr : roles) {
+            if(ocr.IsPrimary) {
                 primaryCount++;
             }
         }
@@ -92,73 +97,37 @@ private class OpportunityTriggerHandlerTest {
         System.assertEquals(
             1,
             primaryCount,
-            'Exactly one Contact Role should be Primary.'
+            'Exactly one OCR should be primary.'
         );
     }
-
-    // Test 2: No duplicate Contact Roles on Opportunity update
+    
     @isTest
-    static void testDuplicatePrevention() {
+    static void testPrimaryOcrsCheck() {
 
         Account acc = [
-            SELECT Id FROM Account
-            WHERE Name = 'Old Account'
+            SELECT Id
+            FROM Account
+            WHERE Name = 'Account A'
             LIMIT 1
         ];
 
-        Opportunity opp = createOpportunity(acc.Id);
-        insert opp;
-
         Test.startTest();
 
-        opp.Name = 'Updated Opportunity';
-        update opp;
-
-        Test.stopTest();
-
-        Integer roleCount = [
-            SELECT COUNT()
-            FROM OpportunityContactRole
-            WHERE OpportunityId = :opp.Id
-        ];
-
-        System.assertEquals(
-            2,
-            roleCount,
-            'Existing Contact Roles should not be duplicated.'
+        Opportunity opp = createOpportunity(
+            acc.Id,
+            'Prospecting'
         );
-    }
-
-    // Test 3: Remove old Contact Roles and create new ones
-    // when Opportunity Account changes
-    @isTest
-    static void testAccountChange() {
-
-        Account oldAccount = [
-            SELECT Id FROM Account
-            WHERE Name = 'Old Account'
-            LIMIT 1
-        ];
-
-        Account newAccount = [
-            SELECT Id FROM Account
-            WHERE Name = 'New Account'
-            LIMIT 1
-        ];
-
-        Opportunity opp = createOpportunity(oldAccount.Id);
-        insert opp;
-
-        Test.startTest();
-
-        opp.AccountId = newAccount.Id;
-        update opp;
-
+		Contact con = [Select id from Contact where AccountId = :acc.Id Limit 1];
+        OpportunityContactRole orc = new OpportunityContactRole();
+        orc.OpportunityId = opp.Id;
+        orc.ContactId = con.Id;
+        orc.IsPrimary = true;
+        insert orc;
         Test.stopTest();
-
+		opp.StageName = 'Closed Won';
+        update opp;
         List<OpportunityContactRole> roles = [
-            SELECT Id, ContactId, IsPrimary,
-                   Contact.AccountId
+            SELECT Id, OpportunityId, ContactId, IsPrimary, Role
             FROM OpportunityContactRole
             WHERE OpportunityId = :opp.Id
         ];
@@ -166,20 +135,13 @@ private class OpportunityTriggerHandlerTest {
         System.assertEquals(
             2,
             roles.size(),
-            'Only two new Account Contact Roles should exist.'
+            'OCRs should be created for all Account Contacts.'
         );
 
         Integer primaryCount = 0;
 
-        for (OpportunityContactRole ocr : roles) {
-
-            System.assertEquals(
-                newAccount.Id,
-                ocr.Contact.AccountId,
-                'Contact Role should belong to the new Account.'
-            );
-
-            if (ocr.IsPrimary) {
+        for(OpportunityContactRole ocr : roles) {
+            if(ocr.IsPrimary) {
                 primaryCount++;
             }
         }
@@ -187,27 +149,27 @@ private class OpportunityTriggerHandlerTest {
         System.assertEquals(
             1,
             primaryCount,
-            'One new Contact Role should be Primary.'
+            'Exactly one OCR should be primary.'
         );
     }
 
-    // Test 4: Remove Contact Roles when Account becomes null
+    // Test 2: Opportunity created as Prospecting
     @isTest
-    static void testAccountRemoval() {
+    static void testNonClosedWonOpportunityInsert() {
 
         Account acc = [
-            SELECT Id FROM Account
-            WHERE Name = 'Old Account'
+            SELECT Id
+            FROM Account
+            WHERE Name = 'Account A'
             LIMIT 1
         ];
 
-        Opportunity opp = createOpportunity(acc.Id);
-        insert opp;
-
         Test.startTest();
 
-        opp.AccountId = null;
-        update opp;
+        Opportunity opp = createOpportunity(
+            acc.Id,
+            'Prospecting'
+        );
 
         Test.stopTest();
 
@@ -220,32 +182,225 @@ private class OpportunityTriggerHandlerTest {
         System.assertEquals(
             0,
             roleCount,
-            'Old Account Contact Roles should be removed.'
+            'OCRs should not be created for non-Closed Won Opportunities.'
         );
     }
 
-    // Test 5: Bulk Opportunity creation
+    // Test 3: Change Opportunity stage from Prospecting to Closed Won
     @isTest
-    static void testBulkOpportunityCreation() {
+    static void testOpportunityStageChangeToClosedWon() {
 
         Account acc = [
-            SELECT Id FROM Account
-            WHERE Name = 'Old Account'
+            SELECT Id
+            FROM Account
+            WHERE Name = 'Account A'
             LIMIT 1
         ];
 
-        List<Opportunity> opportunities =
-            new List<Opportunity>();
+        Opportunity opp = createOpportunity(
+            acc.Id,
+            'Prospecting'
+        );
 
-        for (Integer i = 0; i < 5; i++) {
-            opportunities.add(
-                new Opportunity(
-                    Name = 'Bulk Opportunity ' + i,
-                    AccountId = acc.Id,
-                    StageName = 'Prospecting',
-                    CloseDate = Date.today().addDays(30)
-                )
+        Test.startTest();
+
+        opp.StageName = 'Closed Won';
+        update opp;
+
+        Test.stopTest();
+
+        List<OpportunityContactRole> roles = [
+            SELECT Id, OpportunityId, ContactId, IsPrimary
+            FROM OpportunityContactRole
+            WHERE OpportunityId = :opp.Id
+        ];
+
+        System.assertEquals(
+            2,
+            roles.size(),
+            'OCRs should be created when Opportunity becomes Closed Won.'
+        );
+
+        Integer primaryCount = 0;
+
+        for(OpportunityContactRole ocr : roles) {
+            if(ocr.IsPrimary) {
+                primaryCount++;
+            }
+        }
+
+        System.assertEquals(
+            1,
+            primaryCount,
+            'Exactly one OCR should be primary.'
+        );
+    }
+
+    // Test 4: Change Account on Closed Won Opportunity
+    @isTest
+    static void testOpportunityAccountChange() {
+
+        Account accA = [
+            SELECT Id FROM Account
+            WHERE Name = 'Account A'
+            LIMIT 1
+        ];
+
+        Account accB = [
+            SELECT Id FROM Account
+            WHERE Name = 'Account B'
+            LIMIT 1
+        ];
+
+        Opportunity opp = createOpportunity(
+            accA.Id,
+            'Closed Won'
+        );
+
+        Test.startTest();
+
+        opp.AccountId = accB.Id;
+        update opp;
+
+        Test.stopTest();
+
+        List<OpportunityContactRole> roles = [
+            SELECT Id, OpportunityId, ContactId,
+                   Contact.AccountId, IsPrimary
+            FROM OpportunityContactRole
+            WHERE OpportunityId = :opp.Id
+        ];
+
+        System.assertEquals(
+            2,
+            roles.size(),
+            'Old Account OCRs should be deleted and new Account OCRs created.'
+        );
+
+        Integer primaryCount = 0;
+
+        for(OpportunityContactRole ocr : roles) {
+
+            System.assertEquals(
+                accB.Id,
+                ocr.Contact.AccountId,
+                'Only Contacts belonging to the new Account should remain.'
             );
+
+            if(ocr.IsPrimary) {
+                primaryCount++;
+            }
+        }
+
+        System.assertEquals(
+            1,
+            primaryCount,
+            'New Account should have exactly one primary OCR.'
+        );
+    }
+
+    // Test 5: Update unrelated Opportunity field
+    @isTest
+    static void testUnrelatedOpportunityUpdate() {
+
+        Account acc = [
+            SELECT Id FROM Account
+            WHERE Name = 'Account A'
+            LIMIT 1
+        ];
+
+        Opportunity opp = createOpportunity(
+            acc.Id,
+            'Closed Won'
+        );
+
+        Integer countBefore = [
+            SELECT COUNT()
+            FROM OpportunityContactRole
+            WHERE OpportunityId = :opp.Id
+        ];
+
+        Test.startTest();
+
+        opp.Amount = 50000;
+        update opp;
+
+        Test.stopTest();
+
+        Integer countAfter = [
+            SELECT COUNT()
+            FROM OpportunityContactRole
+            WHERE OpportunityId = :opp.Id
+        ];
+
+        System.assertEquals(
+            countBefore,
+            countAfter,
+            'Updating Amount should not create additional OCRs.'
+        );
+    }
+
+    // Test 6: Change Opportunity from Closed Won to Closed Lost
+    @isTest
+    static void testClosedWonToClosedLost() {
+
+        Account acc = [
+            SELECT Id FROM Account
+            WHERE Name = 'Account A'
+            LIMIT 1
+        ];
+
+        Opportunity opp = createOpportunity(
+            acc.Id,
+            'Closed Won'
+        );
+
+        Integer countBefore = [
+            SELECT COUNT()
+            FROM OpportunityContactRole
+            WHERE OpportunityId = :opp.Id
+        ];
+
+        Test.startTest();
+
+        opp.StageName = 'Closed Lost';
+        update opp;
+
+        Test.stopTest();
+
+        Integer countAfter = [
+            SELECT COUNT()
+            FROM OpportunityContactRole
+            WHERE OpportunityId = :opp.Id
+        ];
+
+        System.assertEquals(
+            countBefore,
+            countAfter,
+            'Existing OCRs should remain when Opportunity moves to Closed Lost.'
+        );
+    }
+
+    // Test 7: Bulk Opportunity insertion
+    @isTest
+    static void testBulkOpportunityInsert() {
+
+        Account acc = [
+            SELECT Id FROM Account
+            WHERE Name = 'Account A'
+            LIMIT 1
+        ];
+
+        List<Opportunity> opportunities = new List<Opportunity>();
+
+        for(Integer i = 0; i < 10; i++) {
+
+            opportunities.add(new Opportunity(
+                Name = 'Bulk Opportunity ' + i,
+                AccountId = acc.Id,
+                StageName = 'Closed Won',
+                CloseDate = Date.today().addDays(30)
+            ));
         }
 
         Test.startTest();
@@ -254,9 +409,8 @@ private class OpportunityTriggerHandlerTest {
 
         Test.stopTest();
 
-        Set<Id> opportunityIds = new Map<Id, Opportunity>(
-            opportunities
-        ).keySet();
+        Set<Id> opportunityIds =
+            new Map<Id, Opportunity>(opportunities).keySet();
 
         Integer roleCount = [
             SELECT COUNT()
@@ -265,34 +419,9 @@ private class OpportunityTriggerHandlerTest {
         ];
 
         System.assertEquals(
-            10,
+            20,
             roleCount,
-            'Five Opportunities should create ten Contact Roles.'
-        );
-    }
-
-    // Test 6: Opportunity without an Account
-    @isTest
-    static void testOpportunityWithoutAccount() {
-
-        Opportunity opp = createOpportunity(null);
-
-        Test.startTest();
-
-        insert opp;
-
-        Test.stopTest();
-
-        Integer roleCount = [
-            SELECT COUNT()
-            FROM OpportunityContactRole
-            WHERE OpportunityId = :opp.Id
-        ];
-
-        System.assertEquals(
-            0,
-            roleCount,
-            'No Contact Roles should be created without an Account.'
+            '10 Opportunities with 2 Contacts each should create 20 OCRs.'
         );
     }
 }

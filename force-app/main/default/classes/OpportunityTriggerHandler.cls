@@ -1,20 +1,23 @@
 public class OpportunityTriggerHandler{
     
     public static void handleAfterInsertUpdate(List<Opportunity> opportunities, Map<Id, Opportunity> oldMap, Boolean isInsert) {
-        
-        if(isInsert) {
-            createContactRoles(opportunities, null);
-        } else {
-            List<Opportunity> changedOpportunities = new List<Opportunity>();
-            for(Opportunity opp : opportunities) {
-                Opportunity oldOpp = oldMap.get(opp.Id);
-                if(opp.AccountId != oldOpp.AccountId) {
-                    changedOpportunities.add(opp);
+
+		List<Opportunity> opportunitiesToProcess = new List<Opportunity>();    
+        for(Opportunity opp: opportunities){
+            if(isInsert) {
+                if(opp.StageName == 'Closed Won'){
+                    opportunitiesToProcess.add(opp);
                 }
             }
-            if(!changedOpportunities.isEmpty()) {
-                createContactRoles(changedOpportunities, oldMap);
+            else {
+                Opportunity oldOpp = oldMap.get(opp.Id);
+                if(opp.StageName == 'Closed Won' && (oldOpp.StageName != 'Closed Won' || opp.AccountId != oldOpp.AccountId)) {
+                    opportunitiesToProcess.add(opp);
+                }
             }
+        }
+        if(!opportunitiesToProcess.isEmpty()) {
+            createContactRoles(opportunitiesToProcess, isInsert ? null : oldMap);
         }
     }
     
