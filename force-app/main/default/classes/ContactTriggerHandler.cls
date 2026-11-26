@@ -61,7 +61,7 @@ public class ContactTriggerHandler {
         // Track existing OCRs and primary OCRs
         Set<Id> opportunityPrimaryContactRoleExists = new Set<Id>();
         Map<Id, Set<Id>> existingOpportunityContactRoles = new Map<Id, Set<Id>>();
-        for(OpportunityContactRole ocr : [SELECT Id, OpportunityId, ContactId, IsPrimary FROM OpportunityContactRole WHERE OpportunityId IN :opportunityIds AND ContactId IN :contacts]) {
+        for(OpportunityContactRole ocr : [SELECT Id, OpportunityId, ContactId, IsPrimary FROM OpportunityContactRole WHERE OpportunityId IN :opportunityIds]) {
             
             // Primary OCR is tracked by Opportunity ID
             if(ocr.IsPrimary) {
